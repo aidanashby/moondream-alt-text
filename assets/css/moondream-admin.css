@@ -1,0 +1,258 @@
+/* =============================================================================
+   Moondream Alt Text Generator — Admin Styles
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   Single-image UI (modal + edit media page)
+   ----------------------------------------------------------------------------- */
+
+.moondream-generate-single {
+	display: block;
+	margin-top: 8px;
+}
+
+.moondream-generate-single.is-loading {
+	cursor: wait;
+}
+
+/* Preview area */
+.moondream-preview-wrap {
+	display: none;
+	margin-top: 8px;
+}
+
+.moondream-preview-text {
+	width: 100%;
+	min-height: 60px;
+	resize: vertical;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.moondream-accept {
+	display: block;
+	margin-top: 6px;
+}
+
+/* Truncation notice */
+.moondream-truncation-notice {
+	display: none;
+	margin: 6px 0 0;
+	padding: 4px 8px;
+	background: #fcf9e8;
+	border-left: 3px solid #dba617;
+	font-size: 12px;
+	color: #3c3c3c;
+}
+
+/* Inline error */
+.moondream-error {
+	display: none;
+	margin-top: 6px;
+	color: #d63638;
+	font-size: 12px;
+}
+
+/* Edit media page layout tweaks */
+.moondream-edit-page-wrap {
+	margin-top: 8px;
+}
+
+/* -----------------------------------------------------------------------------
+   Bulk modal overlay
+   ----------------------------------------------------------------------------- */
+
+.moondream-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 160000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.moondream-modal {
+	background: #fff;
+	border-radius: 3px;
+	box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+	width: 560px;
+	max-width: 95vw;
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* Modal header */
+.moondream-modal__header {
+	padding: 16px 20px;
+	border-bottom: 1px solid #dcdcde;
+	flex-shrink: 0;
+}
+
+.moondream-modal__title {
+	margin: 0 0 4px;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.moondream-modal__counter {
+	font-size: 13px;
+	color: #646970;
+}
+
+/* Progress bar */
+.moondream-progress-bar {
+	height: 4px;
+	background: #dcdcde;
+	margin-top: 10px;
+}
+
+.moondream-progress-bar__fill {
+	height: 100%;
+	background: #2271b1;
+	width: 0;
+	transition: width 0.25s ease;
+}
+
+/* Modal limit warning */
+.moondream-modal__limit-warn {
+	display: none;
+	padding: 8px 12px;
+	background: #fcf9e8;
+	border-left: 3px solid #dba617;
+	font-size: 12px;
+	color: #3c3c3c;
+	flex-shrink: 0;
+}
+
+.moondream-modal__limit-warn.is-visible {
+	display: block;
+}
+
+/* Image list */
+.moondream-modal__list {
+	overflow-y: auto;
+	flex: 1;
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+
+.moondream-modal__row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 20px;
+	border-bottom: 1px solid #f0f0f1;
+	font-size: 13px;
+}
+
+.moondream-modal__row:last-child {
+	border-bottom: none;
+}
+
+.moondream-modal__thumb {
+	width: 50px;
+	height: 50px;
+	object-fit: cover;
+	flex-shrink: 0;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+	background: #f6f7f7;
+}
+
+.moondream-modal__filename {
+	flex: 1;
+	color: #1d2327;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.moondream-modal__status {
+	flex-shrink: 0;
+	text-align: right;
+	min-width: 80px;
+}
+
+/* Status states */
+.moondream-modal__status .spinner {
+	float: none;
+	margin: 0;
+	vertical-align: middle;
+	visibility: visible;
+}
+
+.moondream-modal__status--success {
+	color: #00a32a;
+}
+
+.moondream-modal__status--skipped {
+	color: #646970;
+}
+
+.moondream-modal__status--saving {
+	color: #646970;
+	font-style: italic;
+}
+
+.moondream-modal__status--error {
+	color: #d63638;
+}
+
+.moondream-retry-single {
+	display: inline;
+	background: none;
+	border: none;
+	padding: 0;
+	margin-left: 6px;
+	color: #2271b1;
+	cursor: pointer;
+	font-size: 12px;
+	text-decoration: underline;
+}
+
+.moondream-retry-single:hover {
+	color: #135e96;
+}
+
+/* Modal footer */
+.moondream-modal__footer {
+	padding: 12px 20px;
+	border-top: 1px solid #dcdcde;
+	display: flex;
+	justify-content: flex-end;
+	flex-shrink: 0;
+}
+
+/* Bulk trigger button (grid view toolbar) */
+.moondream-generate-bulk {
+	margin-left: 8px;
+}
+
+/* -----------------------------------------------------------------------------
+   Bulk modal — review phase
+   ----------------------------------------------------------------------------- */
+
+.moondream-modal__review-input {
+	width: 100%;
+	max-width: 220px;
+	font-size: 12px;
+	padding: 3px 6px;
+	vertical-align: middle;
+}
+
+.moondream-modal__row--discarded {
+	opacity: 0.45;
+}
+
+.moondream-modal__row--discarded .moondream-modal__review-input {
+	text-decoration: line-through;
+}
+
+.moondream-modal__footer .button + .button {
+	margin-left: 8px;
+}
