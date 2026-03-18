@@ -40,7 +40,7 @@ class Moondream_Api {
 		}
 
 		$image_url = wp_get_attachment_url( $attachment_id );
-		$prompt    = $this->assemble_prompt();
+		$prompt    = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
 
 		// First attempt: send the public image URL directly.
 		$result = $this->api_request( array( 'image_url' => $image_url ), $prompt );
@@ -147,12 +147,17 @@ class Moondream_Api {
 	/**
 	 * Assemble the prompt string sent as the `question` parameter.
 	 *
+	 * @param string $filename Optional cleaned filename (without extension) to hint context.
 	 * @return string
 	 */
-	private function assemble_prompt() {
+	private function assemble_prompt( $filename = '' ) {
 		$prompt = 'Write alt text for this image. '
 			. 'Output the alt text directly — no introduction, no phrases like "The image shows", "This image depicts", or "A photo of", no closing punctuation. '
-			. 'Start with the subject. Maximum ' . MOONDREAM_PROMPT_CHAR_LIMIT . ' characters.';
+			. 'Start with the subject. Keep it to a single brief sentence.';
+
+		if ( ! empty( $filename ) ) {
+			$prompt .= "\nThe file is named '" . $filename . "'.";
+		}
 
 		$context = get_option( 'moondream_global_context', '' );
 		if ( ! empty( $context ) ) {
@@ -160,6 +165,30 @@ class Moondream_Api {
 		}
 
 		return $prompt;
+	}
+
+	/**
+	 * Return a human-readable version of an attachment's filename.
+	 * Strips the extension and replaces hyphens/underscores with spaces.
+	 *
+	 * @param int $attachment_id
+	 * @return string Empty string if the file path cannot be determined.
+	 */
+	private function get_clean_filename( $attachment_id ) {
+		$file_path = get_attached_file( $attachment_id );
+		if ( ! $file_path ) {
+			return '';
+		}
+
+		$raw = pathinfo( wp_basename( $file_path ), PATHINFO_FILENAME );
+		if ( empty( $raw ) ) {
+			return '';
+		}
+
+		// Replace hyphens, underscores, and runs of whitespace with a single space.
+		$clean = preg_replace( '/[-_]+/', ' ', $raw );
+		$clean = preg_replace( '/\s+/', ' ', $clean );
+		return trim( $clean );
 	}
 
 	// -------------------------------------------------------------------------

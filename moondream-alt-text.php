@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Moondream Alt Text Generator
- * Plugin URI:
+ * Plugin URI:  https://github.com/aidanashby/moondream-alt-text
  * Description: Generates descriptive alt text for media library images using the Moondream Cloud vision API.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Aidan Ashby
  * Text Domain: moondream-alt-text
  * Domain Path: /languages
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MOONDREAM_VERSION', '1.0.0' );
+define( 'MOONDREAM_VERSION', '1.1.0' );
 define( 'MOONDREAM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MOONDREAM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MOONDREAM_PLUGIN_FILE', __FILE__ );
@@ -24,9 +24,10 @@ define( 'MOONDREAM_PLUGIN_FILE', __FILE__ );
 // Maximum images processed per bulk run.
 define( 'MOONDREAM_BULK_LIMIT', 20 );
 
-// Soft character limit requested from API; hard cap applied server-side below.
-define( 'MOONDREAM_PROMPT_CHAR_LIMIT', 100 );
-define( 'MOONDREAM_HARD_CHAR_LIMIT', 125 );
+// Hard character cap applied server-side after the API response.
+// The prompt asks for a brief sentence rather than specifying a char count,
+// as vision models do not reliably count characters.
+define( 'MOONDREAM_HARD_CHAR_LIMIT', 200 );
 
 // Maximum image file size sent to the API (5 MB).
 define( 'MOONDREAM_MAX_FILE_SIZE', 5 * 1024 * 1024 );
@@ -42,8 +43,10 @@ function moondream_run() {
 	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-settings.php';
 	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-ajax.php';
 	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-core.php';
+	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-updater.php';
 
 	Moondream_Core::get_instance();
+	new Moondream_Updater( MOONDREAM_PLUGIN_FILE );
 }
 add_action( 'plugins_loaded', 'moondream_run' );
 

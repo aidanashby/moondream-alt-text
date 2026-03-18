@@ -4,7 +4,7 @@ Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,10 +69,19 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 
 == Changelog ==
 
+= 1.1.0 =
+* Added automatic update checking via GitHub Releases — updates now appear in the standard WordPress Plugins screen.
+* Attachment filename is now passed to the API as a prompt hint (hyphens and underscores converted to spaces).
+* Removed character-count instruction from the prompt; replaced with "single brief sentence" — vision models do not reliably count characters.
+* Raised server-side hard character cap from 125 to 200 to reduce unwanted mid-sentence truncation.
+
 = 1.0.0 =
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Adds automatic update support via GitHub Releases. Improved prompt and higher character cap reduces truncated descriptions.
 
 = 1.0.0 =
 Initial release.
