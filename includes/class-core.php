@@ -37,6 +37,7 @@ class Moondream_Core {
 		new Moondream_Ajax( $api );
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+		add_action( 'pre_get_posts',         array( $this, 'filter_no_alt_list_view' ) );
 
 		// Register PHP bulk action (for the dropdown option to appear).
 		add_filter( 'bulk_actions-upload',        array( $this, 'register_bulk_action' ) );
@@ -106,6 +107,9 @@ class Moondream_Core {
 				'save_all'        => __( 'Save all', 'moondream-alt-text' ),
 				'discard'         => __( 'Discard', 'moondream-alt-text' ),
 				'keep'            => __( 'Keep', 'moondream-alt-text' ),
+				'filter_no_alt'    => __( 'Missing alt text', 'moondream-alt-text' ),
+				'filter_show_all'  => __( 'Show all images', 'moondream-alt-text' ),
+				'retrying_base64' => __( 'Retrying via base64…', 'moondream-alt-text' ),
 				'saving'          => __( 'Saving…', 'moondream-alt-text' ),
 				'saved'           => __( 'Saved', 'moondream-alt-text' ),
 			),
@@ -131,7 +135,59 @@ class Moondream_Core {
 				true
 			);
 			wp_localize_script( 'moondream-bulk', 'moondreamData', $localize_data );
+
+			wp_enqueue_script(
+				'moondream-filter',
+				MOONDREAM_PLUGIN_URL . 'assets/js/moondream-filter.js',
+				array(),
+				MOONDREAM_VERSION,
+				true
+			);
+			wp_localize_script( 'moondream-filter', 'moondreamData', $localize_data );
 		}
+	}
+
+	// -------------------------------------------------------------------------
+	// List view — no-alt filter
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Filter the media library list view query to show only images without alt text.
+	 *
+	 * Hooked to pre_get_posts. Applies when upload.php is loaded with ?moondream_no_alt=1,
+	 * set by the JS toggle button via a URL param and page reload.
+	 *
+	 * @param WP_Query $query
+	 */
+	public function filter_no_alt_list_view( $query ) {
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return;
+		}
+
+		global $pagenow;
+		if ( $pagenow !== 'upload.php' ) {
+			return;
+		}
+
+		if ( empty( $_GET['moondream_no_alt'] ) ) {
+			return;
+		}
+
+		$query->set(
+			'meta_query',
+			array(
+				'relation' => 'OR',
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'compare' => 'NOT EXISTS',
+				),
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'value'   => '',
+					'compare' => '=',
+				),
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------

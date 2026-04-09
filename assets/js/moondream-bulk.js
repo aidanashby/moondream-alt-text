@@ -141,6 +141,10 @@
 		row.status.innerHTML = '<span class="moondream-modal__status--skipped">' + escHtml( strings.skipped || 'Skipped' ) + '</span>';
 	}
 
+	function markRowRetryingBase64( row ) {
+		row.status.innerHTML = '<span class="moondream-modal__status--retrying">' + escHtml( strings.retrying_base64 || 'Retrying via base64\u2026' ) + '</span>';
+	}
+
 	function markRowError( row, message ) {
 		var errorSpan = document.createElement( 'span' );
 		errorSpan.className = 'moondream-modal__status--error';
@@ -314,12 +318,56 @@
 			} )
 			.then( function ( json ) {
 				if ( ! modal ) return;
+
+				// URL path was blocked by the API — retry via base64 in a new request.
+				if ( json.success && json.data && json.data.needs_base64 ) {
+					markRowRetryingBase64( row );
+					return processOneBase64( row );
+				}
+
 				modal.done++;
 				if ( json.success ) {
 					if ( json.data && json.data.skipped ) {
 						markRowSkipped( row );
 					} else {
 						// Store text for review phase; do not write to DB yet.
+						row.generatedText = json.data.alt_text;
+						markRowGenerated( row );
+					}
+					modal.succeeded++;
+				} else {
+					var msg = json.data && json.data.message ? json.data.message : ( strings.network_error || 'Error' );
+					markRowError( row, msg );
+					modal.failed++;
+				}
+			} )
+			.catch( function () {
+				if ( ! modal ) return;
+				modal.done++;
+				markRowError( row, strings.network_error || 'Network error.' );
+				modal.failed++;
+			} );
+	}
+
+	function processOneBase64( row ) {
+		var formData = new FormData();
+		formData.append( 'action', 'moondream_generate_bulk_base64' );
+		formData.append( 'nonce', data.nonce );
+		formData.append( 'attachment_id', row.id );
+		formData.append( 'overwrite', data.bulk_overwrite ? 'true' : 'false' );
+
+		return fetch( data.ajaxurl, { method: 'POST', body: formData } )
+			.then( function ( r ) {
+				if ( ! r.ok ) throw new Error( 'network' );
+				return r.json();
+			} )
+			.then( function ( json ) {
+				if ( ! modal ) return;
+				modal.done++;
+				if ( json.success ) {
+					if ( json.data && json.data.skipped ) {
+						markRowSkipped( row );
+					} else {
 						row.generatedText = json.data.alt_text;
 						markRowGenerated( row );
 					}
@@ -421,7 +469,7 @@
 
 		var btn = document.createElement( 'button' );
 		btn.type = 'button';
-		btn.className = 'button moondream-generate-bulk';
+		btn.className = 'button media-button button-large moondream-generate-bulk';
 		btn.textContent = strings.generate || 'Generate alt text';
 
 		btn.addEventListener( 'click', function () {

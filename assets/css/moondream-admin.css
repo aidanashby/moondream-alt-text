@@ -233,6 +233,15 @@
 	margin-left: 8px;
 }
 
+/* No-alt filter button (grid and list view toolbars) */
+.moondream-filter-no-alt.is-active,
+.moondream-filter-no-alt.is-active:hover,
+.moondream-filter-no-alt.is-active:focus {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+}
+
 /* -----------------------------------------------------------------------------
    Bulk modal — review phase
    ----------------------------------------------------------------------------- */

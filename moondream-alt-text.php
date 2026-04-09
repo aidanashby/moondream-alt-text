@@ -3,7 +3,7 @@
  * Plugin Name: Moondream Alt Text Generator
  * Plugin URI:  https://github.com/aidanashby/moondream-alt-text
  * Description: Generates descriptive alt text for media library images using the Moondream Cloud vision API.
- * Version: 1.1.0
+ * Version: 1.1.4
  * Author: Aidan Ashby
  * Text Domain: moondream-alt-text
  * Domain Path: /languages
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MOONDREAM_VERSION', '1.1.0' );
+define( 'MOONDREAM_VERSION', '1.1.4' );
 define( 'MOONDREAM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MOONDREAM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MOONDREAM_PLUGIN_FILE', __FILE__ );

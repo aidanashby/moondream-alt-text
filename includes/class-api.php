@@ -58,6 +58,60 @@ class Moondream_Api {
 	}
 
 	/**
+	 * Generate alt text via the URL path only — no base64 fallback.
+	 * Returns WP_Error('needs_base64') if the API could not access the URL,
+	 * so the caller can route to generate_alt_text_base64() in a separate request.
+	 *
+	 * @param int $attachment_id
+	 * @return array|WP_Error Array with 'text' and 'was_truncated' on success.
+	 */
+	public function generate_alt_text_url_only( $attachment_id ) {
+		$preflight = $this->preflight_checks( $attachment_id );
+		if ( is_wp_error( $preflight ) ) {
+			return $preflight;
+		}
+
+		$image_url = wp_get_attachment_url( $attachment_id );
+		$prompt    = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
+		$result    = $this->api_request( array( 'image_url' => $image_url ), $prompt );
+
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
+			return new WP_Error( 'needs_base64', '' );
+		}
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return $this->truncate_response( $result );
+	}
+
+	/**
+	 * Generate alt text via the base64 path directly, skipping the URL attempt.
+	 * Used as the second leg of bulk generation when generate_alt_text_url_only()
+	 * returns needs_base64.
+	 *
+	 * @param int $attachment_id
+	 * @return array|WP_Error Array with 'text' and 'was_truncated' on success.
+	 */
+	public function generate_alt_text_base64( $attachment_id ) {
+		$preflight = $this->preflight_checks( $attachment_id );
+		if ( is_wp_error( $preflight ) ) {
+			return $preflight;
+		}
+
+		$image_url = wp_get_attachment_url( $attachment_id );
+		$prompt    = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
+		$result    = $this->api_request_base64_from_url( $image_url, $prompt );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return $this->truncate_response( $result );
+	}
+
+	/**
 	 * Test the API with a known public image URL, bypassing attachment validation.
 	 * Used by the settings page test button.
 	 *
@@ -215,7 +269,7 @@ class Moondream_Api {
 		$response = wp_remote_post(
 			MOONDREAM_API_ENDPOINT,
 			array(
-				'timeout' => 15,
+				'timeout' => 30,
 				'headers' => array(
 					'X-Moondream-Auth' => $api_key,
 					'Content-Type'     => 'application/json',
@@ -237,7 +291,7 @@ class Moondream_Api {
 	private function api_request_base64_from_url( $image_url, $prompt ) {
 		$fetch = wp_remote_get(
 			$image_url,
-			array( 'timeout' => 15 )
+			array( 'timeout' => 20 )
 		);
 
 		if ( is_wp_error( $fetch ) ) {

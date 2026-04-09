@@ -19,10 +19,12 @@ class Moondream_Ajax {
 	public function __construct( Moondream_Api $api ) {
 		$this->api = $api;
 
-		add_action( 'wp_ajax_moondream_generate_single', array( $this, 'handle_generate_single' ) );
-		add_action( 'wp_ajax_moondream_generate_bulk',   array( $this, 'handle_generate_bulk' ) );
-		add_action( 'wp_ajax_moondream_save_alt_text',   array( $this, 'handle_save_alt_text' ) );
-		add_action( 'wp_ajax_moondream_test_api',        array( $this, 'handle_test_api' ) );
+		add_action( 'wp_ajax_moondream_generate_single',       array( $this, 'handle_generate_single' ) );
+		add_action( 'wp_ajax_moondream_generate_bulk',         array( $this, 'handle_generate_bulk' ) );
+		add_action( 'wp_ajax_moondream_generate_bulk_base64',  array( $this, 'handle_generate_bulk_base64' ) );
+		add_action( 'wp_ajax_moondream_save_alt_text',         array( $this, 'handle_save_alt_text' ) );
+		add_action( 'wp_ajax_moondream_test_api',              array( $this, 'handle_test_api' ) );
+		add_action( 'wp_ajax_moondream_get_no_alt_ids',        array( $this, 'handle_get_no_alt_ids' ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -100,7 +102,12 @@ class Moondream_Ajax {
 			}
 		}
 
-		$result = $this->api->generate_alt_text( $attachment_id );
+		$result = $this->api->generate_alt_text_url_only( $attachment_id );
+
+		// Signal the JS to retry via the base64 path in a separate request.
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'needs_base64' ) {
+			wp_send_json_success( array( 'needs_base64' => true ) );
+		}
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
@@ -111,6 +118,55 @@ class Moondream_Ajax {
 				'alt_text'  => $result['text'],
 				'truncated' => $result['was_truncated'],
 				'skipped'   => false,
+			)
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// Bulk generation — base64 fallback leg
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Handle the base64 fallback leg of a bulk generation request.
+	 *
+	 * Called by JS when handle_generate_bulk() signals needs_base64.
+	 * Fetches the image and re-submits it as a base64 data URI.
+	 */
+	public function handle_generate_bulk_base64() {
+		check_ajax_referer( 'moondream_alt_text_nonce', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'You do not have permission to perform this action.', 'moondream-alt-text' ) ),
+				403
+			);
+		}
+
+		$attachment_id = absint( isset( $_POST['attachment_id'] ) ? $_POST['attachment_id'] : 0 );
+		if ( ! $attachment_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid attachment ID.', 'moondream-alt-text' ) ) );
+		}
+
+		$overwrite = isset( $_POST['overwrite'] ) && sanitize_text_field( wp_unslash( $_POST['overwrite'] ) ) === 'true';
+		if ( ! $overwrite ) {
+			$existing = get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
+			if ( ! empty( $existing ) ) {
+				wp_send_json_success( array( 'skipped' => true, 'via_base64' => true ) );
+			}
+		}
+
+		$result = $this->api->generate_alt_text_base64( $attachment_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'alt_text'   => $result['text'],
+				'truncated'  => $result['was_truncated'],
+				'skipped'    => false,
+				'via_base64' => true,
 			)
 		);
 	}
@@ -173,5 +229,48 @@ class Moondream_Ajax {
 		}
 
 		wp_send_json_success( array( 'text' => $result['text'] ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// Grid view — no-alt filter
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return IDs of all image attachments that have no alt text.
+	 *
+	 * Used by the JS grid filter: JS passes post__in with these IDs to constrain
+	 * the media library grid query (post__in is in WordPress's query-attachments whitelist).
+	 */
+	public function handle_get_no_alt_ids() {
+		check_ajax_referer( 'moondream_alt_text_nonce', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'You do not have permission to perform this action.', 'moondream-alt-text' ) ),
+				403
+			);
+		}
+
+		$query = new WP_Query( array(
+			'post_type'      => 'attachment',
+			'post_mime_type' => 'image',
+			'post_status'    => 'inherit',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'meta_query'     => array(
+				'relation' => 'OR',
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'compare' => 'NOT EXISTS',
+				),
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'value'   => '',
+					'compare' => '=',
+				),
+			),
+		) );
+
+		wp_send_json_success( array( 'ids' => $query->posts ) );
 	}
 }
