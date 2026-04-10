@@ -23,6 +23,18 @@ class Moondream_Api {
 		'image/tiff',
 	);
 
+	/**
+	 * Return the list of MIME types the Moondream API can process.
+	 *
+	 * Used by AJAX handlers, pre_get_posts filters, and JS localisation so that
+	 * every part of the plugin works from the same authoritative list.
+	 *
+	 * @return string[]
+	 */
+	public static function get_supported_mime_types() {
+		return self::$supported_mime_types;
+	}
+
 	// -------------------------------------------------------------------------
 	// Public interface
 	// -------------------------------------------------------------------------
@@ -42,12 +54,19 @@ class Moondream_Api {
 		$image_url = wp_get_attachment_url( $attachment_id );
 		$prompt    = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
 
-		// First attempt: send the public image URL directly.
-		$result = $this->api_request( array( 'image_url' => $image_url ), $prompt );
+		// First attempt: fetch the image server-side and send as base64.
+		// More reliable on shared hosting where the API cannot reach the site's own URLs.
+		$result = $this->api_request_base64_from_url( $image_url, $prompt );
 
-		// If the API could not access the URL, fall back to base64.
-		if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
-			$result = $this->api_request_base64_from_url( $image_url, $prompt );
+		// If the server could not fetch its own image, fall back to sending the URL directly.
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'image_not_accessible' ) {
+			$result = $this->api_request( array( 'image_url' => $image_url ), $prompt );
+			if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
+				return new WP_Error(
+					'api_error',
+					__( 'The API could not process this image via either method.', 'moondream-alt-text' )
+				);
+			}
 		}
 
 		if ( is_wp_error( $result ) ) {
@@ -129,17 +148,37 @@ class Moondream_Api {
 		// Stable Wikimedia Commons test image (freely licensed photograph).
 		$test_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png';
 		$prompt   = $this->assemble_prompt();
-		$result   = $this->api_request( array( 'image_url' => $test_url ), $prompt );
+		$method   = 'base64';
+		$start    = microtime( true );
 
-		if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
-			$result = $this->api_request_base64_from_url( $test_url, $prompt );
+		$result = $this->api_request_base64_from_url( $test_url, $prompt );
+
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'image_not_accessible' ) {
+			$method = 'url';
+			$result = $this->api_request( array( 'image_url' => $test_url ), $prompt );
+			if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
+				return new WP_Error(
+					'api_error',
+					__( 'The API could not process this image via either method.', 'moondream-alt-text' )
+				);
+			}
 		}
+
+		$elapsed_ms = (int) round( ( microtime( true ) - $start ) * 1000 );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
 
-		return array( 'text' => $result );
+		$truncated = $this->truncate_response( $result );
+
+		return array(
+			'text'          => $truncated['text'],
+			'was_truncated' => $truncated['was_truncated'],
+			'elapsed_ms'    => $elapsed_ms,
+			'method'        => $method,
+			'char_count'    => mb_strlen( $truncated['text'] ),
+		);
 	}
 
 	// -------------------------------------------------------------------------

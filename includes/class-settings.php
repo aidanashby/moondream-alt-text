@@ -253,7 +253,8 @@ class Moondream_Settings {
 				<?php esc_html_e( 'Test connection', 'moondream-alt-text' ); ?>
 			</button>
 			<div id="moondream-test-result" style="margin-top:1em; display:none;">
-				<pre id="moondream-test-output" style="background:#f6f7f7;padding:1em;border:1px solid #dcdcde;overflow:auto;max-height:200px;"></pre>
+				<pre id="moondream-test-output" style="background:#f6f7f7;padding:1em;border:1px solid #dcdcde;border-bottom:none;overflow:auto;max-height:200px;margin-bottom:0;"></pre>
+				<div id="moondream-test-stats" class="moondream-test-stats"></div>
 			</div>
 
 			<script>
@@ -261,31 +262,47 @@ class Moondream_Settings {
 				var btn    = document.getElementById( 'moondream-test-btn' );
 				var result = document.getElementById( 'moondream-test-result' );
 				var output = document.getElementById( 'moondream-test-output' );
+				var stats  = document.getElementById( 'moondream-test-stats' );
 
 				if ( ! btn ) return;
 
 				btn.addEventListener( 'click', function() {
-					btn.disabled    = true;
-					btn.textContent = <?php echo wp_json_encode( __( 'Testing…', 'moondream-alt-text' ) ); ?>;
+					btn.disabled         = true;
+					btn.textContent      = <?php echo wp_json_encode( __( 'Testing…', 'moondream-alt-text' ) ); ?>;
 					result.style.display = 'none';
+					if ( stats ) { stats.innerHTML = ''; }
 
-					var data = new FormData();
-					data.append( 'action', 'moondream_test_api' );
-					data.append( 'nonce', <?php echo wp_json_encode( wp_create_nonce( 'moondream_test_nonce' ) ); ?> );
+					var formData = new FormData();
+					formData.append( 'action', 'moondream_test_api' );
+					formData.append( 'nonce', <?php echo wp_json_encode( wp_create_nonce( 'moondream_test_nonce' ) ); ?> );
 
 					fetch( <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>, {
 						method: 'POST',
-						body: data,
+						body: formData,
 					} )
 					.then( function( r ) { return r.json(); } )
 					.then( function( json ) {
-						output.textContent     = json.success ? json.data.text : ( json.data && json.data.message ? json.data.message : <?php echo wp_json_encode( __( 'Unknown error.', 'moondream-alt-text' ) ); ?> );
-						result.style.display   = 'block';
-						btn.disabled           = false;
-						btn.textContent        = <?php echo wp_json_encode( __( 'Test connection', 'moondream-alt-text' ) ); ?>;
+						if ( json.success ) {
+							output.textContent = json.data.text;
+							if ( stats ) {
+								stats.innerHTML =
+									'<table>' +
+									'<tr><th>' + <?php echo wp_json_encode( __( 'Method', 'moondream-alt-text' ) ); ?> + '</th><td>' + ( json.data.method === 'base64' ? 'Base64' : 'URL' ) + '</td></tr>' +
+									'<tr><th>' + <?php echo wp_json_encode( __( 'Response time', 'moondream-alt-text' ) ); ?> + '</th><td>' + json.data.elapsed_ms + 'ms</td></tr>' +
+									'<tr><th>' + <?php echo wp_json_encode( __( 'Characters', 'moondream-alt-text' ) ); ?> + '</th><td>' + json.data.char_count + ( json.data.was_truncated ? ' ' + <?php echo wp_json_encode( __( '(truncated)', 'moondream-alt-text' ) ); ?> : '' ) + '</td></tr>' +
+									'</table>';
+							}
+						} else {
+							output.textContent = json.data && json.data.message ? json.data.message : <?php echo wp_json_encode( __( 'Unknown error.', 'moondream-alt-text' ) ); ?>;
+							if ( stats ) { stats.innerHTML = ''; }
+						}
+						result.style.display = 'block';
+						btn.disabled         = false;
+						btn.textContent      = <?php echo wp_json_encode( __( 'Test connection', 'moondream-alt-text' ) ); ?>;
 					} )
 					.catch( function() {
 						output.textContent   = <?php echo wp_json_encode( __( 'Network error. Please check your connection and try again.', 'moondream-alt-text' ) ); ?>;
+						if ( stats ) { stats.innerHTML = ''; }
 						result.style.display = 'block';
 						btn.disabled         = false;
 						btn.textContent      = <?php echo wp_json_encode( __( 'Test connection', 'moondream-alt-text' ) ); ?>;

@@ -234,6 +234,10 @@
 }
 
 /* No-alt filter button (grid and list view toolbars) */
+.moondream-filter-no-alt {
+	margin-left: 4px;
+}
+
 .moondream-filter-no-alt.is-active,
 .moondream-filter-no-alt.is-active:hover,
 .moondream-filter-no-alt.is-active:focus {
@@ -264,4 +268,60 @@
 
 .moondream-modal__footer .button + .button {
 	margin-left: 8px;
+}
+
+/* Modal skipped-types notice */
+.moondream-modal__skipped-warn {
+	display: none;
+	padding: 8px 12px;
+	background: #f0f6fc;
+	border-left: 3px solid #72aee6;
+	font-size: 12px;
+	color: #3c3c3c;
+	flex-shrink: 0;
+}
+
+.moondream-modal__skipped-warn.is-visible {
+	display: block;
+}
+
+/* Retrying status (URL fallback in progress) */
+.moondream-modal__status--retrying {
+	color: #646970;
+	font-style: italic;
+}
+
+/* -----------------------------------------------------------------------------
+   Settings page — API test stats panel
+   ----------------------------------------------------------------------------- */
+
+.moondream-test-stats {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	padding: 0.75em 1em;
+	font-size: 13px;
+}
+
+.moondream-test-stats table {
+	border-collapse: collapse;
+	width: auto;
+}
+
+.moondream-test-stats th {
+	text-align: left;
+	font-weight: 600;
+	padding-right: 1.5em;
+	padding-bottom: 4px;
+	color: #1d2327;
+	white-space: nowrap;
+}
+
+.moondream-test-stats td {
+	padding-bottom: 4px;
+	color: #50575e;
+}
+
+.moondream-test-stats tr:last-child th,
+.moondream-test-stats tr:last-child td {
+	padding-bottom: 0;
 }

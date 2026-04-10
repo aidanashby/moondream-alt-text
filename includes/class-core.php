@@ -74,6 +74,7 @@ class Moondream_Core {
 			'bulk_limit'               => MOONDREAM_BULK_LIMIT,
 			'truncation_notice_enabled' => (bool) get_option( 'moondream_truncation_notice', true ),
 			'bulk_overwrite'           => (bool) get_option( 'moondream_bulk_overwrite', false ),
+			'supported_mime_types'     => Moondream_Api::get_supported_mime_types(),
 			'strings'                  => array(
 				'generate'        => __( 'Generate alt text', 'moondream-alt-text' ),
 				'generating'      => __( 'Generating…', 'moondream-alt-text' ),
@@ -82,7 +83,7 @@ class Moondream_Core {
 				'truncated'       => __( 'Text was trimmed to fit the character limit.', 'moondream-alt-text' ),
 				'bulk_limit_warn' => sprintf(
 					/* translators: %d: bulk image limit */
-					__( 'You can generate alt text for up to %d images at a time. The first %d selected will be processed.', 'moondream-alt-text' ),
+					__( 'You can generate alt text for up to %d images at a time. The first %d compatible images will be processed.', 'moondream-alt-text' ),
 					MOONDREAM_BULK_LIMIT,
 					MOONDREAM_BULK_LIMIT
 				),
@@ -92,7 +93,7 @@ class Moondream_Core {
 				'network_error'   => __( 'Network error. Please check your connection and try again.', 'moondream-alt-text' ),
 				'timeout'         => __( 'The request timed out. The image may be too large or the API unresponsive.', 'moondream-alt-text' ),
 				'rate_limit'      => __( 'Rate limit reached. Please wait a moment and try again.', 'moondream-alt-text' ),
-				'invalid_format'  => __( 'This image format is not supported.', 'moondream-alt-text' ),
+				'invalid_format'  => __( 'This file format is not supported.', 'moondream-alt-text' ),
 				'image_too_large' => __( 'This image exceeds the maximum file size for the API.', 'moondream-alt-text' ),
 				'empty_response'   => __( 'The API returned an empty response. Try again or check your prompt context.', 'moondream-alt-text' ),
 				'no_attachment_id' => __( 'Could not identify this attachment. Please refresh and try again.', 'moondream-alt-text' ),
@@ -109,7 +110,14 @@ class Moondream_Core {
 				'keep'            => __( 'Keep', 'moondream-alt-text' ),
 				'filter_no_alt'    => __( 'Missing alt text', 'moondream-alt-text' ),
 				'filter_show_all'  => __( 'Show all images', 'moondream-alt-text' ),
-				'retrying_base64' => __( 'Retrying via base64…', 'moondream-alt-text' ),
+				'retrying'         => __( 'Retrying…', 'moondream-alt-text' ),
+				'skipped_types'    => __( 'file(s) skipped — unsupported format:', 'moondream-alt-text' ),
+				'all_incompatible' => __( 'No compatible images selected. Unsupported format:', 'moondream-alt-text' ),
+				'all_have_alt'     => __( 'All selected images already have alt text.', 'moondream-alt-text' ),
+				'generated'        => __( 'generated', 'moondream-alt-text' ),
+				'skipped_summary'  => __( 'skipped', 'moondream-alt-text' ),
+				'cancel'          => __( 'Cancel', 'moondream-alt-text' ),
+				'cancelled'       => __( 'Cancelled', 'moondream-alt-text' ),
 				'saving'          => __( 'Saving…', 'moondream-alt-text' ),
 				'saved'           => __( 'Saved', 'moondream-alt-text' ),
 			),
@@ -173,6 +181,7 @@ class Moondream_Core {
 			return;
 		}
 
+		$query->set( 'post_mime_type', Moondream_Api::get_supported_mime_types() );
 		$query->set(
 			'meta_query',
 			array(

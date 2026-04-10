@@ -102,11 +102,11 @@ class Moondream_Ajax {
 			}
 		}
 
-		$result = $this->api->generate_alt_text_url_only( $attachment_id );
+		$result = $this->api->generate_alt_text_base64( $attachment_id );
 
-		// Signal the JS to retry via the base64 path in a separate request.
-		if ( is_wp_error( $result ) && $result->get_error_code() === 'needs_base64' ) {
-			wp_send_json_success( array( 'needs_base64' => true ) );
+		// Base64 path could not fetch the image server-side; signal JS to try the URL path.
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'image_not_accessible' ) {
+			wp_send_json_success( array( 'needs_url_fallback' => true ) );
 		}
 
 		if ( is_wp_error( $result ) ) {
@@ -127,10 +127,10 @@ class Moondream_Ajax {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Handle the base64 fallback leg of a bulk generation request.
+	 * Handle the URL fallback leg of a bulk generation request.
 	 *
-	 * Called by JS when handle_generate_bulk() signals needs_base64.
-	 * Fetches the image and re-submits it as a base64 data URI.
+	 * Called by JS when handle_generate_bulk() signals needs_url_fallback.
+	 * Sends the image URL directly to the API instead of fetching and encoding it.
 	 */
 	public function handle_generate_bulk_base64() {
 		check_ajax_referer( 'moondream_alt_text_nonce', 'nonce' );
@@ -155,7 +155,12 @@ class Moondream_Ajax {
 			}
 		}
 
-		$result = $this->api->generate_alt_text_base64( $attachment_id );
+		$result = $this->api->generate_alt_text_url_only( $attachment_id );
+
+		// URL also rejected by the API — no further fallback.
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'needs_base64' ) {
+			wp_send_json_error( array( 'message' => __( 'The API could not process this image via either method.', 'moondream-alt-text' ) ) );
+		}
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
@@ -163,10 +168,9 @@ class Moondream_Ajax {
 
 		wp_send_json_success(
 			array(
-				'alt_text'   => $result['text'],
-				'truncated'  => $result['was_truncated'],
-				'skipped'    => false,
-				'via_base64' => true,
+				'alt_text'  => $result['text'],
+				'truncated' => $result['was_truncated'],
+				'skipped'   => false,
 			)
 		);
 	}
@@ -228,7 +232,15 @@ class Moondream_Ajax {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 		}
 
-		wp_send_json_success( array( 'text' => $result['text'] ) );
+		wp_send_json_success(
+			array(
+				'text'          => $result['text'],
+				'elapsed_ms'    => $result['elapsed_ms'],
+				'method'        => $result['method'],
+				'char_count'    => $result['char_count'],
+				'was_truncated' => $result['was_truncated'],
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -251,9 +263,9 @@ class Moondream_Ajax {
 			);
 		}
 
-		$query = new WP_Query( array(
+		$args = array(
 			'post_type'      => 'attachment',
-			'post_mime_type' => 'image',
+			'post_mime_type' => Moondream_Api::get_supported_mime_types(),
 			'post_status'    => 'inherit',
 			'posts_per_page' => -1,
 			'fields'         => 'ids',
@@ -269,8 +281,16 @@ class Moondream_Ajax {
 					'compare' => '=',
 				),
 			),
-		) );
+		);
 
+		// Optional: restrict to a specific set of IDs (used when pre-filtering a bulk selection).
+		$raw_ids = isset( $_POST['post__in'] ) ? (array) $_POST['post__in'] : array();
+		$post_in = array_values( array_filter( array_map( 'absint', $raw_ids ) ) );
+		if ( ! empty( $post_in ) ) {
+			$args['post__in'] = $post_in;
+		}
+
+		$query = new WP_Query( $args );
 		wp_send_json_success( array( 'ids' => $query->posts ) );
 	}
 }

@@ -4,7 +4,7 @@ Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ JPEG, PNG, GIF, WebP, AVIF, BMP, and TIFF. The server validates the format befor
 
 = How many images can I process at once in bulk? =
 
-Up to 20 images per bulk run. If more are selected, the first 20 are processed.
+Up to 20 images per bulk run. The limit applies after excluding incompatible file formats and images that already have alt text.
 
 = Does this plugin add anything to the front end? =
 
@@ -69,6 +69,20 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 
 == Changelog ==
 
+= 1.1.5 =
+* Switched bulk generation to base64-first with URL as fallback, fixing failures on hosting where the API cannot reach the site's own media URLs.
+* Incompatible file types (SVG, PDF, etc.) are now excluded from bulk processing, the missing alt text filter, and the bulk action limit — the 20-image cap now applies only to compatible images without existing alt text.
+* Added Cancel button to the bulk generation modal — stops the queue, retains any results already received, and proceeds to the review phase.
+* API test panel now shows response time, method used (base64/URL), and character count below the generated description.
+* Bulk modal now notes which file types were skipped when incompatible files are excluded from a selection.
+* Inline notice shown when all selected files are incompatible formats, or when all selected images already have alt text.
+* Review phase summary now correctly reports generated, skipped, and failed counts separately.
+* Error message for unsupported formats updated to "This file format is not supported" to cover non-image files such as PDFs.
+
+= 1.1.4 =
+* Missing alt text filter button added to both grid and list view in the media library.
+* Automatic GitHub release workflow: pushing a version tag now builds and attaches the plugin zip to a GitHub release.
+
 = 1.1.0 =
 * Added automatic update checking via GitHub Releases — updates now appear in the standard WordPress Plugins screen.
 * Attachment filename is now passed to the API as a prompt hint (hyphens and underscores converted to spaces).
@@ -79,6 +93,12 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.5 =
+Fixes bulk generation on restricted hosting, improves MIME filtering, adds a Cancel button to the bulk modal, and extends the API test panel with timing and method data.
+
+= 1.1.4 =
+Adds missing alt text filter button to the media library and automatic GitHub release builds on tag push.
 
 = 1.1.0 =
 Adds automatic update support via GitHub Releases. Improved prompt and higher character cap reduces truncated descriptions.

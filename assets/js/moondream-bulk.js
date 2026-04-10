@@ -2,15 +2,49 @@
 ( function () {
 	'use strict';
 
-	var data = window.moondreamData || {};
-	var strings = data.strings || {};
+	var data      = window.moondreamData || {};
+	var strings   = data.strings || {};
 	var bulkLimit = data.bulk_limit || 20;
+
+	// -------------------------------------------------------------------------
+	// MIME type support structures
+	// Derived from PHP-localised supported_mime_types so every layer uses the
+	// same authoritative list from class-api.php.
+	// -------------------------------------------------------------------------
+
+	var supportedMimeTypes = data.supported_mime_types || [];
+
+	// Raw subtypes for grid view data-subtype matching: 'svg+xml', 'jpeg', etc.
+	var supportedSubtypes = supportedMimeTypes.map( function ( m ) {
+		return m.split( '/' )[ 1 ];
+	} );
+
+	// Sanitized subtypes for list view CSS class matching.
+	// Mirrors WordPress sanitize_html_class(): strips non-[A-Za-z0-9_-] chars.
+	var supportedSubtypesSanitized = supportedSubtypes.map( function ( s ) {
+		return s.replace( /[^A-Za-z0-9_-]/g, '' );
+	} );
+
+	// Label map: both raw and sanitized forms map to a human-readable label.
+	// 'svg+xml' → 'SVG',  'svgxml' → 'SVG',  'jpeg' → 'JPEG'
+	var subtypeLabels = {};
+	supportedMimeTypes.forEach( function ( mime ) {
+		var raw       = mime.split( '/' )[ 1 ];
+		var sanitized = raw.replace( /[^A-Za-z0-9_-]/g, '' );
+		var label     = raw.split( '+' )[ 0 ].toUpperCase();
+		subtypeLabels[ raw ]       = label;
+		subtypeLabels[ sanitized ] = label;
+	} );
+
+	function subtypeLabel( subtype ) {
+		return subtypeLabels[ subtype ] || subtype.split( '+' )[ 0 ].toUpperCase();
+	}
 
 	// -------------------------------------------------------------------------
 	// Modal
 	// -------------------------------------------------------------------------
 
-	var modal = null;
+	var modal     = null;
 	var overlayEl = null;
 
 	function createModal( items ) {
@@ -45,10 +79,14 @@
 		header.appendChild( counter );
 		header.appendChild( progressBar );
 
-		// Limit warning (shown if list was truncated)
+		// Limit warning (shown if selection was capped at bulkLimit)
 		var limitWarn = document.createElement( 'div' );
 		limitWarn.className = 'moondream-modal__limit-warn';
 		limitWarn.textContent = strings.bulk_limit_warn || '';
+
+		// Skipped-types notice (shown if incompatible files were excluded)
+		var skippedWarn = document.createElement( 'div' );
+		skippedWarn.className = 'moondream-modal__skipped-warn';
 
 		// Image list
 		var list = document.createElement( 'ul' );
@@ -65,6 +103,18 @@
 		var footer = document.createElement( 'div' );
 		footer.className = 'moondream-modal__footer';
 
+		var cancelBtn = document.createElement( 'button' );
+		cancelBtn.type = 'button';
+		cancelBtn.className = 'button';
+		cancelBtn.textContent = strings.cancel || 'Cancel';
+		cancelBtn.addEventListener( 'click', function () {
+			if ( modal ) {
+				modal.cancelled = true;
+				cancelBtn.disabled = true;
+			}
+		} );
+		footer.appendChild( cancelBtn );
+
 		var closeBtn = document.createElement( 'button' );
 		closeBtn.type = 'button';
 		closeBtn.className = 'button';
@@ -75,24 +125,29 @@
 
 		modalEl.appendChild( header );
 		modalEl.appendChild( limitWarn );
+		modalEl.appendChild( skippedWarn );
 		modalEl.appendChild( list );
 		modalEl.appendChild( footer );
 		overlayEl.appendChild( modalEl );
 		document.body.appendChild( overlayEl );
 
 		modal = {
-			title: title,
-			counter: counter,
+			title:        title,
+			counter:      counter,
 			progressFill: progressFill,
-			progressBar: progressBar,
-			limitWarn: limitWarn,
-			rows: rows,
-			closeBtn: closeBtn,
-			footer: footer,
-			total: items.length,
-			done: 0,
-			succeeded: 0,
-			failed: 0,
+			progressBar:  progressBar,
+			limitWarn:    limitWarn,
+			skippedWarn:  skippedWarn,
+			rows:         rows,
+			closeBtn:     closeBtn,
+			footer:       footer,
+			total:        items.length,
+			done:         0,
+			succeeded:    0,
+			skipped:      0,
+			failed:       0,
+			cancelled:    false,
+			cancelBtn:    cancelBtn,
 		};
 
 		return modal;
@@ -104,9 +159,9 @@
 
 		var thumb = document.createElement( 'img' );
 		thumb.className = 'moondream-modal__thumb';
-		thumb.width = 50;
+		thumb.width  = 50;
 		thumb.height = 50;
-		thumb.alt = '';
+		thumb.alt    = '';
 		if ( item.thumb ) {
 			thumb.src = item.thumb;
 		} else {
@@ -120,7 +175,6 @@
 		var status = document.createElement( 'span' );
 		status.className = 'moondream-modal__status';
 
-		// Start with spinner
 		var spinner = document.createElement( 'span' );
 		spinner.className = 'spinner';
 		status.appendChild( spinner );
@@ -133,7 +187,6 @@
 	}
 
 	function markRowGenerated( row ) {
-		// Temporary success tick during generation phase; replaced in review phase.
 		row.status.innerHTML = '<span class="moondream-modal__status--success">&#10003;</span>';
 	}
 
@@ -141,8 +194,8 @@
 		row.status.innerHTML = '<span class="moondream-modal__status--skipped">' + escHtml( strings.skipped || 'Skipped' ) + '</span>';
 	}
 
-	function markRowRetryingBase64( row ) {
-		row.status.innerHTML = '<span class="moondream-modal__status--retrying">' + escHtml( strings.retrying_base64 || 'Retrying via base64\u2026' ) + '</span>';
+	function markRowRetrying( row ) {
+		row.status.innerHTML = '<span class="moondream-modal__status--retrying">' + escHtml( strings.retrying || 'Retrying\u2026' ) + '</span>';
 	}
 
 	function markRowError( row, message ) {
@@ -151,19 +204,17 @@
 		errorSpan.textContent = message;
 
 		var retryBtn = document.createElement( 'button' );
-		retryBtn.type = 'button';
+		retryBtn.type      = 'button';
 		retryBtn.className = 'moondream-retry-single';
 		retryBtn.textContent = strings.retry || 'Retry';
 
 		retryBtn.addEventListener( 'click', function () {
 			retryBtn.disabled = true;
-			// Restore spinner while retrying
 			row.status.innerHTML = '';
 			var spinner = document.createElement( 'span' );
 			spinner.className = 'spinner';
 			row.status.appendChild( spinner );
 
-			// Adjust counts: this row was counted as failed, un-count it
 			modal.failed = Math.max( 0, modal.failed - 1 );
 			modal.done   = Math.max( 0, modal.done - 1 );
 
@@ -191,29 +242,35 @@
 	// -------------------------------------------------------------------------
 
 	function enterReviewPhase() {
-		// Update header
-		modal.title.textContent = strings.review_header || 'Review generated alt text';
-		modal.counter.textContent =
-			modal.succeeded + ' ' + ( strings.succeeded || 'succeeded' ) +
-			( modal.failed > 0 ? ', ' + modal.failed + ' ' + ( strings.failed || 'failed' ) : '' );
+		if ( modal.cancelBtn ) {
+			modal.cancelBtn.style.display = 'none';
+		}
 
-		// Hide progress bar
+		modal.title.textContent = strings.review_header || 'Review generated alt text';
+		var parts = [ modal.succeeded + ' ' + ( strings.generated || 'generated' ) ];
+		if ( modal.skipped > 0 ) {
+			parts.push( modal.skipped + ' ' + ( strings.skipped_summary || 'skipped' ) );
+		}
+		if ( modal.failed > 0 ) {
+			parts.push( modal.failed + ' ' + ( strings.failed || 'failed' ) );
+		}
+		modal.counter.textContent = parts.join( ', ' );
+
 		modal.progressBar.style.display = 'none';
 
-		// Transform each generated row into an editable review row
 		modal.rows.forEach( function ( row ) {
 			if ( ! row.generatedText ) {
-				return; // skipped or failed — leave status as-is
+				return;
 			}
 
 			var input = document.createElement( 'input' );
-			input.type = 'text';
+			input.type      = 'text';
 			input.className = 'moondream-modal__review-input';
-			input.value = row.generatedText;
+			input.value     = row.generatedText;
 			row.reviewInput = input;
 
 			var discardBtn = document.createElement( 'button' );
-			discardBtn.type = 'button';
+			discardBtn.type      = 'button';
 			discardBtn.className = 'moondream-retry-single';
 			discardBtn.textContent = strings.discard || 'Discard';
 
@@ -233,9 +290,8 @@
 			row.status.appendChild( discardBtn );
 		} );
 
-		// Add "Save all" button to footer (before Close)
 		var saveAllBtn = document.createElement( 'button' );
-		saveAllBtn.type = 'button';
+		saveAllBtn.type      = 'button';
 		saveAllBtn.className = 'button button-primary';
 		saveAllBtn.textContent = strings.save_all || 'Save all';
 		saveAllBtn.addEventListener( 'click', function () {
@@ -245,7 +301,6 @@
 		modal.footer.insertBefore( saveAllBtn, modal.closeBtn );
 		modal.saveAllBtn = saveAllBtn;
 
-		// Enable Close
 		modal.closeBtn.disabled = false;
 	}
 
@@ -265,10 +320,10 @@
 			var altText = row.reviewInput ? row.reviewInput.value : row.generatedText;
 
 			var formData = new FormData();
-			formData.append( 'action', 'moondream_save_alt_text' );
-			formData.append( 'nonce', data.nonce );
+			formData.append( 'action',        'moondream_save_alt_text' );
+			formData.append( 'nonce',         data.nonce );
 			formData.append( 'attachment_id', row.id );
-			formData.append( 'alt_text', altText );
+			formData.append( 'alt_text',      altText );
 
 			return fetch( data.ajaxurl, { method: 'POST', body: formData } )
 				.then( function ( r ) { return r.json(); } )
@@ -294,21 +349,21 @@
 		if ( overlayEl && overlayEl.parentNode ) {
 			overlayEl.parentNode.removeChild( overlayEl );
 		}
-		modal = null;
+		modal     = null;
 		overlayEl = null;
 	}
 
 	// -------------------------------------------------------------------------
-	// AJAX — generate one image (generation phase)
+	// AJAX — generate one image (base64 primary path)
 	// -------------------------------------------------------------------------
 
 	function processOne( row ) {
 		var formData = new FormData();
-		formData.append( 'action', 'moondream_generate_bulk' );
-		formData.append( 'nonce', data.nonce );
+		formData.append( 'action',        'moondream_generate_bulk' );
+		formData.append( 'nonce',         data.nonce );
 		formData.append( 'attachment_id', row.id );
-		// Explicit string — wp_localize_script may serialise booleans as 1/"" on
-		// older WP versions; the PHP handler expects the literal string 'true'.
+		// Explicit string — wp_localize_script may serialise booleans as 1/""
+		// on older WP versions; the PHP handler expects the literal string 'true'.
 		formData.append( 'overwrite', data.bulk_overwrite ? 'true' : 'false' );
 
 		return fetch( data.ajaxurl, { method: 'POST', body: formData } )
@@ -319,22 +374,22 @@
 			.then( function ( json ) {
 				if ( ! modal ) return;
 
-				// URL path was blocked by the API — retry via base64 in a new request.
-				if ( json.success && json.data && json.data.needs_base64 ) {
-					markRowRetryingBase64( row );
-					return processOneBase64( row );
+				// Base64 path could not fetch the image server-side; retry via URL.
+				if ( json.success && json.data && json.data.needs_url_fallback ) {
+					markRowRetrying( row );
+					return processOneUrlFallback( row );
 				}
 
 				modal.done++;
 				if ( json.success ) {
 					if ( json.data && json.data.skipped ) {
 						markRowSkipped( row );
+						modal.skipped++;
 					} else {
-						// Store text for review phase; do not write to DB yet.
 						row.generatedText = json.data.alt_text;
 						markRowGenerated( row );
+						modal.succeeded++;
 					}
-					modal.succeeded++;
 				} else {
 					var msg = json.data && json.data.message ? json.data.message : ( strings.network_error || 'Error' );
 					markRowError( row, msg );
@@ -349,12 +404,16 @@
 			} );
 	}
 
-	function processOneBase64( row ) {
+	// -------------------------------------------------------------------------
+	// AJAX — generate one image (URL fallback path)
+	// -------------------------------------------------------------------------
+
+	function processOneUrlFallback( row ) {
 		var formData = new FormData();
-		formData.append( 'action', 'moondream_generate_bulk_base64' );
-		formData.append( 'nonce', data.nonce );
+		formData.append( 'action',        'moondream_generate_bulk_base64' );
+		formData.append( 'nonce',         data.nonce );
 		formData.append( 'attachment_id', row.id );
-		formData.append( 'overwrite', data.bulk_overwrite ? 'true' : 'false' );
+		formData.append( 'overwrite',     data.bulk_overwrite ? 'true' : 'false' );
 
 		return fetch( data.ajaxurl, { method: 'POST', body: formData } )
 			.then( function ( r ) {
@@ -367,11 +426,12 @@
 				if ( json.success ) {
 					if ( json.data && json.data.skipped ) {
 						markRowSkipped( row );
+						modal.skipped++;
 					} else {
 						row.generatedText = json.data.alt_text;
 						markRowGenerated( row );
+						modal.succeeded++;
 					}
-					modal.succeeded++;
 				} else {
 					var msg = json.data && json.data.message ? json.data.message : ( strings.network_error || 'Error' );
 					markRowError( row, msg );
@@ -388,6 +448,18 @@
 
 	async function processSequentially( rows ) {
 		for ( var i = 0; i < rows.length; i++ ) {
+			if ( modal && modal.cancelled ) {
+				// Mark all remaining rows as cancelled and account for them in the total.
+				for ( var j = i; j < rows.length; j++ ) {
+					rows[ j ].status.innerHTML =
+						'<span class="moondream-modal__status--skipped">' +
+						escHtml( strings.cancelled || 'Cancelled' ) + '</span>';
+					modal.done++;
+					modal.skipped++;
+				}
+				updateProgress();
+				return;
+			}
 			await processOne( rows[ i ] );
 			updateProgress();
 		}
@@ -397,9 +469,9 @@
 	// Open bulk modal
 	// -------------------------------------------------------------------------
 
-	function openBulkModal( items, wasLimited ) {
+	function openBulkModal( items, wasLimited, skippedCount, skippedLabels ) {
 		if ( modal ) {
-			return; // Modal already open
+			return;
 		}
 
 		var m = createModal( items );
@@ -408,49 +480,175 @@
 			m.limitWarn.classList.add( 'is-visible' );
 		}
 
+		if ( skippedCount > 0 && skippedLabels.length ) {
+			m.skippedWarn.textContent =
+				skippedCount + ' ' +
+				( strings.skipped_types || 'file(s) skipped \u2014 unsupported format:' ) +
+				' ' + skippedLabels.join( ', ' );
+			m.skippedWarn.classList.add( 'is-visible' );
+		}
+
 		processSequentially( m.rows );
 	}
 
 	// -------------------------------------------------------------------------
-	// Collect attachment data from wp.media frame (grid view)
+	// Inline notices
+	// -------------------------------------------------------------------------
+
+	function showNotice( anchorEl, message ) {
+		var noticeId = 'moondream-incompatible-notice';
+		var existing = document.getElementById( noticeId );
+		if ( existing ) {
+			existing.parentNode.removeChild( existing );
+		}
+
+		var notice = document.createElement( 'p' );
+		notice.id            = noticeId;
+		notice.style.cssText = 'margin:8px 0 0;font-size:13px;color:#646970;';
+		notice.textContent   = message;
+
+		anchorEl.insertAdjacentElement( 'afterend', notice );
+
+		setTimeout( function () {
+			if ( notice.parentNode ) {
+				notice.parentNode.removeChild( notice );
+			}
+		}, 4000 );
+	}
+
+	function showIncompatibleNotice( anchorEl, skippedLabels ) {
+		showNotice(
+			anchorEl,
+			( strings.all_incompatible || 'No compatible images selected. Unsupported format:' ) +
+			' ' + skippedLabels.join( ', ' )
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// Pre-filter by no-alt status, apply limit, open modal
+	// -------------------------------------------------------------------------
+
+	function prepareAndOpen( items, skippedCount, skippedLabels, anchorEl ) {
+		// When overwrite is on, all compatible images are fair game — no pre-filter needed.
+		if ( data.bulk_overwrite ) {
+			var wasLimited = items.length > bulkLimit;
+			if ( wasLimited ) {
+				items = items.slice( 0, bulkLimit );
+			}
+			openBulkModal( items, wasLimited, skippedCount, skippedLabels );
+			return;
+		}
+
+		// Ask the server which of the selected IDs are missing alt text, then
+		// apply the bulk limit to that filtered list so no slots are wasted on
+		// images that would be skipped anyway.
+		var formData = new FormData();
+		formData.append( 'action', 'moondream_get_no_alt_ids' );
+		formData.append( 'nonce', data.nonce );
+		items.forEach( function ( item ) {
+			formData.append( 'post__in[]', item.id );
+		} );
+
+		fetch( data.ajaxurl, { method: 'POST', body: formData } )
+			.then( function ( r ) { return r.json(); } )
+			.then( function ( json ) {
+				var noAltIds = json.success && json.data ? json.data.ids : null;
+				var filtered = noAltIds
+					? items.filter( function ( item ) {
+						return noAltIds.indexOf( item.id ) !== -1;
+					} )
+					: items;
+
+				if ( ! filtered.length ) {
+					showNotice( anchorEl, strings.all_have_alt || 'All selected images already have alt text.' );
+					return;
+				}
+
+				var wasLimited = filtered.length > bulkLimit;
+				if ( wasLimited ) {
+					filtered = filtered.slice( 0, bulkLimit );
+				}
+				openBulkModal( filtered, wasLimited, skippedCount, skippedLabels );
+			} )
+			.catch( function () {
+				// Fallback: open without pre-filtering rather than silently failing.
+				var wasLimited = items.length > bulkLimit;
+				if ( wasLimited ) {
+					items = items.slice( 0, bulkLimit );
+				}
+				openBulkModal( items, wasLimited, skippedCount, skippedLabels );
+			} );
+	}
+
+	// -------------------------------------------------------------------------
+	// Collect attachment data — grid view
 	// -------------------------------------------------------------------------
 
 	function getGridSelectionItems() {
-		// Read directly from the DOM — more reliable than wp.media.frame in the
-		// Manage frame on upload.php. Bulk-selected <li> elements have class "selected".
-		var selectedLis = document.querySelectorAll( '.attachments-browser .attachment.selected' );
+		var items        = [];
+		var skippedCount = 0;
+		var skippedTypes = {};
 
-		if ( ! selectedLis.length ) {
-			// Fallback to wp.media Backbone selection.
-			try {
-				return wp.media.frame.state().get( 'selection' ).models.map( function ( m ) {
+		// Backbone selection is the authoritative source — it carries the full
+		// MIME type for every attachment, which is more reliable than parsing CSS
+		// classes (subtypes like svg+xml do not survive class sanitisation cleanly).
+		try {
+			var selection = wp.media.frame.state().get( 'selection' );
+			if ( selection && selection.models.length ) {
+				selection.models.forEach( function ( m ) {
+					var mime    = m.get( 'mime' ) || '';
+					var subtype = mime.split( '/' )[ 1 ] || m.get( 'subtype' ) || '';
+					if ( ! mime || supportedMimeTypes.indexOf( mime ) === -1 ) {
+						skippedCount++;
+						if ( subtype ) skippedTypes[ subtype ] = true;
+						return;
+					}
 					var sizes = m.get( 'sizes' );
 					var thumb = sizes && sizes.thumbnail ? sizes.thumbnail.url : ( m.get( 'url' ) || '' );
-					return {
-						id: m.get( 'id' ),
+					items.push( {
+						id:       m.get( 'id' ),
 						filename: m.get( 'filename' ) || m.get( 'title' ) || ( '#' + m.get( 'id' ) ),
-						thumb: thumb,
-					};
+						thumb:    thumb,
+					} );
 				} );
-			} catch ( e ) {
-				return [];
+				return {
+					items:         items,
+					skippedCount:  skippedCount,
+					skippedLabels: Object.keys( skippedTypes ).map( subtypeLabel ),
+				};
 			}
-		}
+		} catch ( e ) {}
 
-		var items = [];
+		// DOM fallback when Backbone is unavailable.
+		var selectedLis = document.querySelectorAll( '.attachments-browser .attachment.selected' );
 		selectedLis.forEach( function ( li ) {
 			var id = parseInt( li.getAttribute( 'data-id' ), 10 );
 			if ( ! id ) return;
-			var thumbEl = li.querySelector( 'img' );
-			var thumb = thumbEl ? thumbEl.src : '';
-			// Filename is in .filename strong, or fall back to the aria-label / title attribute.
+
+			var classMatch = li.className.match( /\bsubtype-([A-Za-z0-9_-]+)\b/ );
+			var subtype    = classMatch ? classMatch[ 1 ] : '';
+			if ( subtype && supportedSubtypesSanitized.indexOf( subtype ) === -1 ) {
+				skippedCount++;
+				skippedTypes[ subtype ] = true;
+				return;
+			}
+
+			var thumbEl    = li.querySelector( 'img' );
 			var filenameEl = li.querySelector( '.filename strong' );
-			var filename = filenameEl
-				? filenameEl.textContent.trim()
-				: ( li.getAttribute( 'aria-label' ) || ( '#' + id ) );
-			items.push( { id: id, filename: filename, thumb: thumb } );
+			items.push( {
+				id:       id,
+				filename: filenameEl
+					? filenameEl.textContent.trim()
+					: ( li.getAttribute( 'aria-label' ) || ( '#' + id ) ),
+				thumb: thumbEl ? thumbEl.src : '',
+			} );
 		} );
-		return items;
+
+		return {
+			items:         items,
+			skippedCount:  skippedCount,
+			skippedLabels: Object.keys( skippedTypes ).map( subtypeLabel ),
+		};
 	}
 
 	// -------------------------------------------------------------------------
@@ -468,20 +666,24 @@
 		}
 
 		var btn = document.createElement( 'button' );
-		btn.type = 'button';
+		btn.type      = 'button';
 		btn.className = 'button media-button button-large moondream-generate-bulk';
 		btn.textContent = strings.generate || 'Generate alt text';
 
 		btn.addEventListener( 'click', function () {
-			var items = getGridSelectionItems();
-			if ( ! items.length ) return;
+			var result        = getGridSelectionItems();
+			var items         = result.items;
+			var skippedCount  = result.skippedCount;
+			var skippedLabels = result.skippedLabels;
 
-			var wasLimited = items.length > bulkLimit;
-			if ( wasLimited ) {
-				items = items.slice( 0, bulkLimit );
+			if ( ! items.length ) {
+				if ( skippedCount > 0 ) {
+					showIncompatibleNotice( btn, skippedLabels );
+				}
+				return;
 			}
 
-			openBulkModal( items, wasLimited );
+			prepareAndOpen( items, skippedCount, skippedLabels, btn );
 		} );
 
 		secondary.appendChild( btn );
@@ -509,7 +711,6 @@
 
 		observer.observe( toolbar, { attributes: true, attributeFilter: [ 'class' ] } );
 
-		// Handle initial state (toolbar might already be in select mode).
 		if ( toolbar.classList.contains( 'media-toolbar-mode-select' ) ) {
 			injectGridBulkButton( toolbar );
 		}
@@ -540,28 +741,47 @@
 				return;
 			}
 
-			var items = [];
+			var items        = [];
+			var skippedCount = 0;
+			var skippedTypes = {};
+
 			checked.forEach( function ( input ) {
 				var id = parseInt( input.value, 10 );
 				if ( ! id ) return;
 
-				var row = input.closest( 'tr' );
+				var row        = input.closest( 'tr' );
+				// WordPress adds a subtype-{sanitized_subtype} class to each row.
+				var classMatch = row ? row.className.match( /\bsubtype-([A-Za-z0-9_-]+)\b/ ) : null;
+				var subtype    = classMatch ? classMatch[ 1 ] : '';
+
+				if ( subtype && supportedSubtypesSanitized.indexOf( subtype ) === -1 ) {
+					skippedCount++;
+					skippedTypes[ subtype ] = true;
+					return;
+				}
+
 				var filenameEl = row ? row.querySelector( '.filename strong' ) : null;
-				var thumbEl = row ? row.querySelector( 'img' ) : null;
+				var thumbEl    = row ? row.querySelector( 'img' ) : null;
 
 				items.push( {
-					id: id,
+					id:       id,
 					filename: filenameEl ? filenameEl.textContent.trim() : ( '#' + id ),
-					thumb: thumbEl ? thumbEl.src : '',
+					thumb:    thumbEl ? thumbEl.src : '',
 				} );
 			} );
 
-			var wasLimited = items.length > bulkLimit;
-			if ( wasLimited ) {
-				items = items.slice( 0, bulkLimit );
+			var skippedLabels = Object.keys( skippedTypes ).map( subtypeLabel );
+
+			if ( ! items.length ) {
+				if ( skippedCount > 0 ) {
+					var applyBtn = form.querySelector( '#doaction' ) || form.querySelector( '.button.action' );
+					showIncompatibleNotice( applyBtn || form, skippedLabels );
+				}
+				return;
 			}
 
-			openBulkModal( items, wasLimited );
+			var anchorEl = form.querySelector( '#doaction' ) || form.querySelector( '.button.action' ) || form;
+			prepareAndOpen( items, skippedCount, skippedLabels, anchorEl );
 		} );
 	}
 
