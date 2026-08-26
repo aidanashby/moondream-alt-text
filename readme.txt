@@ -2,9 +2,9 @@
 Contributors: aidanashby
 Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
-Tested up to: 6.7
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.5
+Stable tag: 1.1.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,13 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 
 == Changelog ==
 
+= 1.1.6 =
+* Fixed the Test connection button, which always failed with "The API could not process this image via either method." The test used a hardcoded external image URL that stopped resolving, so the test failed even when the API key and connection were working normally.
+* The test now uses the most recent usable image in your own media library, so it exercises the same path as real generation and confirms whether the API can reach your site's media URLs.
+* Test results now name the image that was described.
+* Internal errors no longer surface as a blank message when the API rejects an image.
+* Tested up to WordPress 7.1.
+
 = 1.1.5 =
 * Switched bulk generation to base64-first with URL as fallback, fixing failures on hosting where the API cannot reach the site's own media URLs.
 * Incompatible file types (SVG, PDF, etc.) are now excluded from bulk processing, the missing alt text filter, and the bulk action limit — the 20-image cap now applies only to compatible images without existing alt text.
@@ -93,6 +100,9 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.6 =
+Fixes the Test connection button, which reported failure even when the API was working. The test now uses an image from your own media library.
 
 = 1.1.5 =
 Fixes bulk generation on restricted hosting, improves MIME filtering, adds a Cancel button to the bulk modal, and extends the API test panel with timing and method data.

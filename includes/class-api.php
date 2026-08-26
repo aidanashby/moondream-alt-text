@@ -131,12 +131,14 @@ class Moondream_Api {
 	}
 
 	/**
-	 * Test the API with a known public image URL, bypassing attachment validation.
-	 * Used by the settings page test button.
+	 * Test the API using the most recent usable image in the media library.
+	 *
+	 * Tests the real generation path rather than an external URL, so the result
+	 * also tells the user whether the API can reach this site's own media URLs.
 	 *
 	 * @return array|WP_Error
 	 */
-	public function test_with_url() {
+	public function test_connection() {
 		$api_key = get_option( 'moondream_api_key', '' );
 		if ( empty( $api_key ) ) {
 			return new WP_Error(
@@ -145,26 +147,36 @@ class Moondream_Api {
 			);
 		}
 
-		// Stable Wikimedia Commons test image (freely licensed photograph).
-		$test_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png';
-		$prompt   = $this->assemble_prompt();
-		$method   = 'base64';
-		$start    = microtime( true );
+		$attachment_id = $this->get_test_attachment_id();
+		if ( ! $attachment_id ) {
+			return new WP_Error(
+				'no_test_image',
+				__( 'No usable image found in the media library. Upload an image to run the test.', 'moondream-alt-text' )
+			);
+		}
 
-		$result = $this->api_request_base64_from_url( $test_url, $prompt );
+		$image_url = wp_get_attachment_url( $attachment_id );
+		$prompt    = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
+		$method    = 'base64';
+		$start     = microtime( true );
 
+		$result = $this->api_request_base64_from_url( $image_url, $prompt );
+
+		// If the server could not fetch its own image, fall back to sending the URL.
 		if ( is_wp_error( $result ) && $result->get_error_code() === 'image_not_accessible' ) {
 			$method = 'url';
-			$result = $this->api_request( array( 'image_url' => $test_url ), $prompt );
-			if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
-				return new WP_Error(
-					'api_error',
-					__( 'The API could not process this image via either method.', 'moondream-alt-text' )
-				);
-			}
+			$result = $this->api_request( array( 'image_url' => $image_url ), $prompt );
 		}
 
 		$elapsed_ms = (int) round( ( microtime( true ) - $start ) * 1000 );
+
+		// access_error carries no message of its own — it is an internal signal.
+		if ( is_wp_error( $result ) && $result->get_error_code() === 'access_error' ) {
+			return new WP_Error(
+				'api_error',
+				__( 'The API could not process this image via either method.', 'moondream-alt-text' )
+			);
+		}
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -178,7 +190,38 @@ class Moondream_Api {
 			'elapsed_ms'    => $elapsed_ms,
 			'method'        => $method,
 			'char_count'    => mb_strlen( $truncated['text'] ),
+			'image_name'    => wp_basename( (string) get_attached_file( $attachment_id ) ),
 		);
+	}
+
+	/**
+	 * Find the most recent media library image the API can actually process.
+	 *
+	 * Checks a small batch of recent attachments rather than only the newest, so
+	 * an oversized or missing file does not make the test unusable.
+	 *
+	 * @return int Attachment ID, or 0 if none is usable.
+	 */
+	private function get_test_attachment_id() {
+		$candidates = get_posts(
+			array(
+				'post_type'      => 'attachment',
+				'post_status'    => 'inherit',
+				'post_mime_type' => self::$supported_mime_types,
+				'posts_per_page' => 5,
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+				'fields'         => 'ids',
+			)
+		);
+
+		foreach ( $candidates as $candidate_id ) {
+			if ( $this->preflight_checks( $candidate_id ) === true ) {
+				return (int) $candidate_id;
+			}
+		}
+
+		return 0;
 	}
 
 	// -------------------------------------------------------------------------

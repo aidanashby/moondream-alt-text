@@ -248,7 +248,7 @@ class Moondream_Settings {
 			<hr />
 
 			<h2><?php esc_html_e( 'Test API connection', 'moondream-alt-text' ); ?></h2>
-			<p><?php esc_html_e( 'Sends a test image to the API using your current settings and displays the raw response.', 'moondream-alt-text' ); ?></p>
+			<p><?php esc_html_e( 'Sends the most recent image in your media library to the API using your current settings, and displays the raw response.', 'moondream-alt-text' ); ?></p>
 			<button type="button" id="moondream-test-btn" class="button">
 				<?php esc_html_e( 'Test connection', 'moondream-alt-text' ); ?>
 			</button>
@@ -265,6 +265,12 @@ class Moondream_Settings {
 				var stats  = document.getElementById( 'moondream-test-stats' );
 
 				if ( ! btn ) return;
+
+				function esc( value ) {
+					var d = document.createElement( 'div' );
+					d.textContent = value == null ? '' : String( value );
+					return d.innerHTML;
+				}
 
 				btn.addEventListener( 'click', function() {
 					btn.disabled         = true;
@@ -287,6 +293,7 @@ class Moondream_Settings {
 							if ( stats ) {
 								stats.innerHTML =
 									'<table>' +
+									'<tr><th>' + <?php echo wp_json_encode( __( 'Image', 'moondream-alt-text' ) ); ?> + '</th><td>' + esc( json.data.image_name ) + '</td></tr>' +
 									'<tr><th>' + <?php echo wp_json_encode( __( 'Method', 'moondream-alt-text' ) ); ?> + '</th><td>' + ( json.data.method === 'base64' ? 'Base64' : 'URL' ) + '</td></tr>' +
 									'<tr><th>' + <?php echo wp_json_encode( __( 'Response time', 'moondream-alt-text' ) ); ?> + '</th><td>' + json.data.elapsed_ms + 'ms</td></tr>' +
 									'<tr><th>' + <?php echo wp_json_encode( __( 'Characters', 'moondream-alt-text' ) ); ?> + '</th><td>' + json.data.char_count + ( json.data.was_truncated ? ' ' + <?php echo wp_json_encode( __( '(truncated)', 'moondream-alt-text' ) ); ?> : '' ) + '</td></tr>' +

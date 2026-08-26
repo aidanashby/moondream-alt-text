@@ -126,7 +126,7 @@ class Moondream_Updater {
 				'package'     => $release['zip_url'],
 				'icons'       => array(),
 				'banners'     => array(),
-				'tested'      => '6.7',
+				'tested'      => '7.1',
 				'requires_php' => '7.4',
 			);
 		}
@@ -162,7 +162,7 @@ class Moondream_Updater {
 			'author'        => '<a href="https://github.com/aidanashby">Aidan Ashby</a>',
 			'homepage'      => "https://github.com/{$this->github_user}/{$this->github_repo}",
 			'requires'      => '6.0',
-			'tested'        => '6.7',
+			'tested'        => '7.1',
 			'requires_php'  => '7.4',
 			'download_link' => $release['zip_url'],
 			'last_updated'  => $release['published'],

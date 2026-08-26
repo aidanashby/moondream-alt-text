@@ -226,7 +226,7 @@ class Moondream_Ajax {
 			);
 		}
 
-		$result = $this->api->test_with_url();
+		$result = $this->api->test_connection();
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
@@ -239,6 +239,7 @@ class Moondream_Ajax {
 				'method'        => $result['method'],
 				'char_count'    => $result['char_count'],
 				'was_truncated' => $result['was_truncated'],
+				'image_name'    => $result['image_name'],
 			)
 		);
 	}
