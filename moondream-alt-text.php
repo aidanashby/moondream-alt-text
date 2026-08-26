@@ -32,6 +32,10 @@ define( 'MOONDREAM_HARD_CHAR_LIMIT', 200 );
 // Maximum image file size sent to the API (5 MB).
 define( 'MOONDREAM_MAX_FILE_SIZE', 5 * 1024 * 1024 );
 
+// Highest WordPress version this plugin has been tested against.
+// Keep in sync with 'Tested up to' in readme.txt; surfaced to the update UI.
+define( 'MOONDREAM_TESTED_UP_TO', '7.1' );
+
 // Moondream Cloud API endpoint.
 define( 'MOONDREAM_API_ENDPOINT', 'https://api.moondream.ai/v1/query' );
 
