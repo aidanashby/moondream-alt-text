@@ -293,7 +293,7 @@ class Moondream_Settings {
 							if ( stats ) {
 								stats.innerHTML =
 									'<table>' +
-									'<tr><th>' + <?php echo wp_json_encode( __( 'Image', 'moondream-alt-text' ) ); ?> + '</th><td>' + esc( json.data.image_name ) + '</td></tr>' +
+									'<tr><th>' + <?php echo wp_json_encode( __( 'Image', 'moondream-alt-text' ) ); ?> + '</th><td>' + esc( json.data.image_name ) + ( json.data.is_fallback ? ' ' + <?php echo wp_json_encode( __( '(WordPress default image — no media library image available)', 'moondream-alt-text' ) ); ?> : '' ) + '</td></tr>' +
 									'<tr><th>' + <?php echo wp_json_encode( __( 'Method', 'moondream-alt-text' ) ); ?> + '</th><td>' + ( json.data.method === 'base64' ? 'Base64' : 'URL' ) + '</td></tr>' +
 									'<tr><th>' + <?php echo wp_json_encode( __( 'Response time', 'moondream-alt-text' ) ); ?> + '</th><td>' + json.data.elapsed_ms + 'ms</td></tr>' +
 									'<tr><th>' + <?php echo wp_json_encode( __( 'Characters', 'moondream-alt-text' ) ); ?> + '</th><td>' + json.data.char_count + ( json.data.was_truncated ? ' ' + <?php echo wp_json_encode( __( '(truncated)', 'moondream-alt-text' ) ); ?> : '' ) + '</td></tr>' +

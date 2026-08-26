@@ -135,6 +135,8 @@ class Moondream_Api {
 	 *
 	 * Tests the real generation path rather than an external URL, so the result
 	 * also tells the user whether the API can reach this site's own media URLs.
+	 * Falls back to an image bundled with WordPress core when the media library
+	 * has nothing usable, so the test still works on a fresh install.
 	 *
 	 * @return array|WP_Error
 	 */
@@ -148,24 +150,33 @@ class Moondream_Api {
 		}
 
 		$attachment_id = $this->get_test_attachment_id();
-		if ( ! $attachment_id ) {
-			return new WP_Error(
-				'no_test_image',
-				__( 'No usable image found in the media library. Upload an image to run the test.', 'moondream-alt-text' )
-			);
-		}
+		$is_fallback   = ( 0 === $attachment_id );
+		$method        = 'base64';
+		$start         = microtime( true );
 
-		$image_url = wp_get_attachment_url( $attachment_id );
-		$prompt    = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
-		$method    = 'base64';
-		$start     = microtime( true );
+		if ( $is_fallback ) {
+			$fallback_path = $this->get_fallback_test_image_path();
+			if ( ! $fallback_path ) {
+				return new WP_Error(
+					'no_test_image',
+					__( 'No usable image found. Upload an image to the media library to run the test.', 'moondream-alt-text' )
+				);
+			}
 
-		$result = $this->api_request_base64_from_url( $image_url, $prompt );
+			$image_name = wp_basename( $fallback_path );
+			$result     = $this->api_request_base64_from_path( $fallback_path, $this->assemble_prompt() );
+		} else {
+			$image_url  = wp_get_attachment_url( $attachment_id );
+			$image_name = wp_basename( (string) get_attached_file( $attachment_id ) );
+			$prompt     = $this->assemble_prompt( $this->get_clean_filename( $attachment_id ) );
 
-		// If the server could not fetch its own image, fall back to sending the URL.
-		if ( is_wp_error( $result ) && $result->get_error_code() === 'image_not_accessible' ) {
-			$method = 'url';
-			$result = $this->api_request( array( 'image_url' => $image_url ), $prompt );
+			$result = $this->api_request_base64_from_url( $image_url, $prompt );
+
+			// If the server could not fetch its own image, fall back to sending the URL.
+			if ( is_wp_error( $result ) && $result->get_error_code() === 'image_not_accessible' ) {
+				$method = 'url';
+				$result = $this->api_request( array( 'image_url' => $image_url ), $prompt );
+			}
 		}
 
 		$elapsed_ms = (int) round( ( microtime( true ) - $start ) * 1000 );
@@ -190,7 +201,8 @@ class Moondream_Api {
 			'elapsed_ms'    => $elapsed_ms,
 			'method'        => $method,
 			'char_count'    => mb_strlen( $truncated['text'] ),
-			'image_name'    => wp_basename( (string) get_attached_file( $attachment_id ) ),
+			'image_name'    => $image_name,
+			'is_fallback'   => $is_fallback,
 		);
 	}
 
@@ -222,6 +234,57 @@ class Moondream_Api {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Path to an image shipped with WordPress core, used when the media library
+	 * has no usable image.
+	 *
+	 * Reading from disk rather than fetching a remote URL means the fallback
+	 * cannot break because a third-party host changed or removed a file.
+	 *
+	 * @return string Absolute path, or '' if no candidate is readable.
+	 */
+	private function get_fallback_test_image_path() {
+		$candidates = array(
+			ABSPATH . 'wp-includes/images/w-logo-blue-white-bg.png',
+			ABSPATH . 'wp-admin/images/browser.png',
+		);
+
+		foreach ( $candidates as $path ) {
+			if ( file_exists( $path ) && is_readable( $path ) ) {
+				return $path;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Read an image from the local filesystem, base64-encode it, and send to the API.
+	 *
+	 * @param string $path
+	 * @param string $prompt
+	 * @return string|WP_Error
+	 */
+	private function api_request_base64_from_path( $path, $prompt ) {
+		$raw_body = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+
+		if ( false === $raw_body || '' === $raw_body ) {
+			return new WP_Error(
+				'image_not_accessible',
+				__( 'The test image could not be read from disk.', 'moondream-alt-text' )
+			);
+		}
+
+		$mime_type = function_exists( 'wp_get_image_mime' ) ? wp_get_image_mime( $path ) : '';
+		if ( ! $mime_type ) {
+			$mime_type = 'image/png';
+		}
+
+		$data_uri = 'data:' . $mime_type . ';base64,' . base64_encode( $raw_body ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+
+		return $this->api_request( array( 'image_url' => $data_uri ), $prompt );
 	}
 
 	// -------------------------------------------------------------------------

@@ -240,6 +240,7 @@ class Moondream_Ajax {
 				'char_count'    => $result['char_count'],
 				'was_truncated' => $result['was_truncated'],
 				'image_name'    => $result['image_name'],
+				'is_fallback'   => $result['is_fallback'],
 			)
 		);
 	}

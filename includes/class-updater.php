@@ -117,18 +117,27 @@ class Moondream_Updater {
 			return $transient;
 		}
 
+		$item = (object) array(
+			'slug'         => $this->plugin_dir_slug,
+			'plugin'       => $this->plugin_slug,
+			'new_version'  => $release['version'],
+			'url'          => "https://github.com/{$this->github_user}/{$this->github_repo}",
+			'package'      => $release['zip_url'],
+			'icons'        => array(),
+			'banners'      => array(),
+			'tested'       => '7.1',
+			'requires_php' => '7.4',
+		);
+
 		if ( version_compare( MOONDREAM_VERSION, $release['version'], '<' ) ) {
-			$transient->response[ $this->plugin_slug ] = (object) array(
-				'slug'        => $this->plugin_dir_slug,
-				'plugin'      => $this->plugin_slug,
-				'new_version' => $release['version'],
-				'url'         => "https://github.com/{$this->github_user}/{$this->github_repo}",
-				'package'     => $release['zip_url'],
-				'icons'       => array(),
-				'banners'     => array(),
-				'tested'      => '7.1',
-				'requires_php' => '7.4',
-			);
+			unset( $transient->no_update[ $this->plugin_slug ] );
+			$transient->response[ $this->plugin_slug ] = $item;
+		} else {
+			// Clear any stale "update available" entry left from a previous check,
+			// otherwise WordPress keeps offering the version already installed.
+			unset( $transient->response[ $this->plugin_slug ] );
+			$item->new_version                          = MOONDREAM_VERSION;
+			$transient->no_update[ $this->plugin_slug ] = $item;
 		}
 
 		return $transient;

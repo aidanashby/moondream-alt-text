@@ -4,7 +4,7 @@ Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.6
+Stable tag: 1.1.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,11 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 
 == Changelog ==
 
+= 1.1.7 =
+* Fixed WordPress repeatedly offering an update to the version already installed ("You have version 1.1.6 installed. Update to 1.1.6."). The updater added its entry to the update list but never removed a stale one, so an old "update available" record survived the upgrade.
+* The connection test now falls back to an image bundled with WordPress when the media library has no usable image, so it works on a fresh install. The fallback reads from disk rather than fetching a remote URL, so it cannot break if an external host changes.
+* Test results now indicate when the fallback image was used.
+
 = 1.1.6 =
 * Fixed the Test connection button, which always failed with "The API could not process this image via either method." The test used a hardcoded external image URL that stopped resolving, so the test failed even when the API key and connection were working normally.
 * The test now uses the most recent usable image in your own media library, so it exercises the same path as real generation and confirms whether the API can reach your site's media URLs.
@@ -100,6 +105,9 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.7 =
+Fixes a repeating update prompt for an already-installed version, and makes the connection test work on sites with an empty media library.
 
 = 1.1.6 =
 Fixes the Test connection button, which reported failure even when the API was working. The test now uses an image from your own media library.
