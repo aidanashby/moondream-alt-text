@@ -4,7 +4,7 @@ Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.7
+Stable tag: 1.1.8
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,11 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 
 == Changelog ==
 
+= 1.1.8 =
+* Updates now come through the bundled Plugin Update Checker library instead of the plugin's own updater.
+* Added a plugin icon on the Plugins and Updates screens.
+* Added uninstall cleanup: deleting the plugin now removes its settings and stored data. Alt text it generated stays on your images.
+
 = 1.1.7 =
 * Fixed WordPress repeatedly offering an update to the version already installed ("You have version 1.1.6 installed. Update to 1.1.6."). The updater added its entry to the update list but never removed a stale one, so an old "update available" record survived the upgrade.
 * The connection test now falls back to an image bundled with WordPress when the media library has no usable image, so it works on a fresh install. The fallback reads from disk rather than fetching a remote URL, so it cannot break if an external host changes.
@@ -105,6 +110,9 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.8 =
+Switches to a standard update library, adds a plugin icon, and removes its settings when deleted.
 
 = 1.1.7 =
 Fixes a repeating update prompt for an already-installed version, and makes the connection test work on sites with an empty media library.
