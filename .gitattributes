@@ -1,0 +1,9 @@
+# Kept out of release zips (git archive), so sites install only runtime files.
+/.github export-ignore
+/.planning export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/CLAUDE.md export-ignore
+/README.md export-ignore
+/CHANGELOG.md export-ignore
+/assets/icon-white.svg export-ignore

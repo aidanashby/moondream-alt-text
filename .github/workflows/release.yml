@@ -1,27 +1,46 @@
+# Builds the installable plugin zip for a version tag and attaches it to the GitHub release.
+# Plugin Update Checker (enableReleaseAssets) installs updates from this zip.
+#
+# To release: bump the version in the plugin header and version constant, add a
+# "## [x.y.z] - date" section to CHANGELOG.md if the repo has one, commit, then push a tag such as v1.2.0.
 name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
+
+permissions:
+  contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+    env:
+      TAG: ${{ github.ref_name }}
+      SLUG: ${{ github.event.repository.name }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Build zip
+      - name: Check plugin version matches tag
         run: |
-          git archive --format=zip --prefix=moondream-alt-text/ HEAD \
-            -o moondream-alt-text.zip
+          want="${TAG#v}"
+          header=$(sed -n 's/^[ *]*Version: *//p' "$SLUG.php" | head -1 | tr -d '\r')
+          echo "tag=$want header=$header"
+          [ "$header" = "$want" ]
+          grep -q "'$want'" "$SLUG.php" || { echo "Version constant not bumped to $want"; exit 1; }
 
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: moondream-alt-text.zip
-          generate_release_notes: true
+      - name: Build plugin zip
+        run: git archive --format=zip --prefix="$SLUG/" -o "$SLUG.zip" HEAD
+
+      - name: Publish release with zip
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$SLUG.zip" --clobber
+          else
+            : > notes.md
+            if [ -f CHANGELOG.md ]; then
+              awk -v v="${TAG#v}" '/^## /{p = index($0, "[" v "]") > 0; next} p' CHANGELOG.md > notes.md
+            fi
+            gh release create "$TAG" "$SLUG.zip" --title "$TAG" --notes-file notes.md --generate-notes
+          fi

@@ -10,6 +10,7 @@
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
+ * Update URI: https://github.com/aidanashby/moondream-alt-text
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -47,10 +48,16 @@ function moondream_run() {
 	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-settings.php';
 	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-ajax.php';
 	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-core.php';
-	require_once MOONDREAM_PLUGIN_DIR . 'includes/class-updater.php';
+	require_once MOONDREAM_PLUGIN_DIR . 'plugin-update-checker/plugin-update-checker.php';
 
 	Moondream_Core::get_instance();
-	new Moondream_Updater( MOONDREAM_PLUGIN_FILE );
+
+	$checker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+		'https://github.com/aidanashby/moondream-alt-text/',
+		MOONDREAM_PLUGIN_FILE,
+		'moondream-alt-text'
+	);
+	$checker->getVcsApi()->enableReleaseAssets();
 }
 add_action( 'plugins_loaded', 'moondream_run' );
 
