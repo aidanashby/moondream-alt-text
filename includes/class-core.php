@@ -24,14 +24,6 @@ class Moondream_Core {
 	}
 
 	private function __construct() {
-		// Load textdomain immediately — hooking to plugins_loaded from within a
-		// plugins_loaded callback at the same priority would miss the action.
-		load_plugin_textdomain(
-			'moondream-alt-text',
-			false,
-			dirname( plugin_basename( MOONDREAM_PLUGIN_DIR . 'moondream-alt-text.php' ) ) . '/languages'
-		);
-
 		$api = new Moondream_Api();
 		new Moondream_Settings();
 		new Moondream_Ajax( $api );
@@ -82,9 +74,8 @@ class Moondream_Core {
 				'retry'           => __( 'Retry', 'moondream-alt-text' ),
 				'truncated'       => __( 'Text was trimmed to fit the character limit.', 'moondream-alt-text' ),
 				'bulk_limit_warn' => sprintf(
-					/* translators: %d: bulk image limit */
-					__( 'You can generate alt text for up to %d images at a time. The first %d compatible images will be processed.', 'moondream-alt-text' ),
-					MOONDREAM_BULK_LIMIT,
+					/* translators: %1$d: bulk image limit */
+					__( 'You can generate alt text for up to %1$d images at a time. The first %1$d compatible images will be processed.', 'moondream-alt-text' ),
 					MOONDREAM_BULK_LIMIT
 				),
 				'no_api_key'      => __( 'No API key configured. Please visit Settings &rsaquo; Moondream Alt Text.', 'moondream-alt-text' ),
@@ -177,7 +168,8 @@ class Moondream_Core {
 			return;
 		}
 
-		if ( empty( $_GET['moondream_no_alt'] ) ) {
+		// Read-only list filter toggle; no state changes, so no nonce.
+		if ( empty( $_GET['moondream_no_alt'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return;
 		}
 

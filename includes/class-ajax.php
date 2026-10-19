@@ -51,6 +51,13 @@ class Moondream_Ajax {
 			wp_send_json_error( array( 'message' => __( 'Invalid attachment ID.', 'moondream-alt-text' ) ) );
 		}
 
+		if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'You do not have permission to perform this action.', 'moondream-alt-text' ) ),
+				403
+			);
+		}
+
 		$result = $this->api->generate_alt_text( $attachment_id );
 
 		if ( is_wp_error( $result ) ) {
@@ -91,6 +98,13 @@ class Moondream_Ajax {
 		$attachment_id = absint( isset( $_POST['attachment_id'] ) ? $_POST['attachment_id'] : 0 );
 		if ( ! $attachment_id ) {
 			wp_send_json_error( array( 'message' => __( 'Invalid attachment ID.', 'moondream-alt-text' ) ) );
+		}
+
+		if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'You do not have permission to perform this action.', 'moondream-alt-text' ) ),
+				403
+			);
 		}
 
 		// Server-side overwrite enforcement (client also short-circuits, but server is authoritative).
@@ -147,6 +161,13 @@ class Moondream_Ajax {
 			wp_send_json_error( array( 'message' => __( 'Invalid attachment ID.', 'moondream-alt-text' ) ) );
 		}
 
+		if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'You do not have permission to perform this action.', 'moondream-alt-text' ) ),
+				403
+			);
+		}
+
 		$overwrite = isset( $_POST['overwrite'] ) && sanitize_text_field( wp_unslash( $_POST['overwrite'] ) ) === 'true';
 		if ( ! $overwrite ) {
 			$existing = get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
@@ -197,6 +218,13 @@ class Moondream_Ajax {
 		$attachment_id = absint( isset( $_POST['attachment_id'] ) ? $_POST['attachment_id'] : 0 );
 		if ( ! $attachment_id || get_post_type( $attachment_id ) !== 'attachment' ) {
 			wp_send_json_error( array( 'message' => __( 'Invalid attachment ID.', 'moondream-alt-text' ) ) );
+		}
+
+		if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'You do not have permission to perform this action.', 'moondream-alt-text' ) ),
+				403
+			);
 		}
 
 		$alt_text = sanitize_text_field( isset( $_POST['alt_text'] ) ? wp_unslash( $_POST['alt_text'] ) : '' );
@@ -286,7 +314,7 @@ class Moondream_Ajax {
 		);
 
 		// Optional: restrict to a specific set of IDs (used when pre-filtering a bulk selection).
-		$raw_ids = isset( $_POST['post__in'] ) ? (array) $_POST['post__in'] : array();
+		$raw_ids = isset( $_POST['post__in'] ) ? (array) wp_unslash( $_POST['post__in'] ) : array();
 		$post_in = array_values( array_filter( array_map( 'absint', $raw_ids ) ) );
 		if ( ! empty( $post_in ) ) {
 			$args['post__in'] = $post_in;

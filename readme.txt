@@ -4,7 +4,7 @@ Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.8
+Stable tag: 1.1.9
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,10 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 
 == Changelog ==
 
+= 1.1.9 =
+* Users can now only generate or save alt text for images they are allowed to edit. Previously any user who could upload files, such as an Author, could change alt text on other users' images.
+* Tidied input handling and output escaping flagged by Plugin Check. No change to how the plugin works.
+
 = 1.1.8 =
 * Updates now come through the bundled Plugin Update Checker library instead of the plugin's own updater.
 * Added a plugin icon on the Plugins and Updates screens.
@@ -110,6 +114,9 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.9 =
+Stops users changing alt text on images they cannot edit.
 
 = 1.1.8 =
 Switches to a standard update library, adds a plugin icon, and removes its settings when deleted.

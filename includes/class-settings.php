@@ -161,7 +161,7 @@ class Moondream_Settings {
 			printf(
 				/* translators: %d: maximum character count */
 				esc_html__( 'Optional context appended to every prompt (e.g. "Images are from a food bank in Bristol, UK."). Maximum %d characters.', 'moondream-alt-text' ),
-				$max
+				absint( $max )
 			);
 			?>
 		</p>
