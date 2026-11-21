@@ -258,8 +258,10 @@
 
 		modal.progressBar.style.display = 'none';
 
+		// A Retry clicked during review brings the run back here, so only rows new to review get an input:
+		// rebuilding the others would throw away edits already typed into them.
 		modal.rows.forEach( function ( row ) {
-			if ( ! row.generatedText ) {
+			if ( ! row.generatedText || row.reviewInput ) {
 				return;
 			}
 
@@ -289,6 +291,13 @@
 			row.status.appendChild( input );
 			row.status.appendChild( discardBtn );
 		} );
+
+		if ( modal.saveAllBtn ) {
+			modal.saveAllBtn.disabled    = false;
+			modal.saveAllBtn.textContent = strings.save_all || 'Save all';
+			modal.closeBtn.disabled = false;
+			return;
+		}
 
 		var saveAllBtn = document.createElement( 'button' );
 		saveAllBtn.type      = 'button';

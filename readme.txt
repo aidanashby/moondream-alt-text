@@ -4,7 +4,7 @@ Tags: alt text, accessibility, media library, AI, Moondream
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.9
+Stable tag: 1.1.10
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -68,6 +68,9 @@ Yes — images are sent to the Moondream Cloud API for processing. The plugin fi
 4. Settings page.
 
 == Changelog ==
+
+= 1.1.10 =
+* Bulk generation: clicking Retry on a failed image after review had started added a second "Save all" button and replaced any alt text you had already edited with the generated text. Edits are now kept and there is one "Save all" button.
 
 = 1.1.9 =
 * Users can now only generate or save alt text for images they are allowed to edit. Previously any user who could upload files, such as an Author, could change alt text on other users' images.
